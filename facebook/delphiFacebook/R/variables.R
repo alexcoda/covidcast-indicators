@@ -32,7 +32,7 @@ is_selected <- function(vec, selection) {
   vec_unique <- unique(vec)
   
   map_fn <- ifelse( is.null(getOption("mc.cores")) , lapply, mclapply)
-  selections <- map_fn(
+  selections <- unlist(map_fn(
     vec_unique,
     function(resp) {
       if (length(resp) == 0 || all(is.na(resp))) {
@@ -44,7 +44,7 @@ is_selected <- function(vec, selection) {
       } else {
         selection %in% resp
       }
-    })
+    }))
 
   names(selections) <- vec_unique
   names(vec) <- vec
