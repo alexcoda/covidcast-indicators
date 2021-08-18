@@ -29,7 +29,7 @@ split_options <- function(column) {
 #'   
 #' @importFrom parallel mclapply
 is_selected <- function(vec, selection) {
-  map_fn <- ifelse( is.null(getOption("mc.cores")) , lapply, mclapply)
+  map_fn <- ifelse( is.null(getOption("mc.cores")) , lapply, lapply)
   selections <- unlist(map_fn(
     vec,
     function(resp) {
