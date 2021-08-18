@@ -29,9 +29,11 @@ split_options <- function(column) {
 #'   
 #' @importFrom parallel mclapply
 is_selected <- function(vec, selection) {
-  map_fn <- ifelse( is.null(getOption("mc.cores")) , lapply, lapply)
-  selections <- unlist(map_fn(
-    vec,
+  vec_unique <- unique(vec)
+  
+  map_fn <- ifelse( is.null(getOption("mc.cores")) , lapply, mclapply)
+  selections <- map_fn(
+    vec_unique,
     function(resp) {
       if (length(resp) == 0 || all(is.na(resp))) {
         # Qualtrics files code no selection as "" (empty string), which is
@@ -42,9 +44,12 @@ is_selected <- function(vec, selection) {
       } else {
         selection %in% resp
       }
-    }))
+    })
 
-  return(selections)
+  names(selections) <- vec_unique
+  names(vec) <- vec
+  
+  return( as.logical(selections[names(vec)]) )
 }
 
 #' Activities outside the home
