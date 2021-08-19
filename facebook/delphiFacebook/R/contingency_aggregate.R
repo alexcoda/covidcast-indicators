@@ -206,17 +206,17 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, geo_level, params) 
   ## We do batches of just one set of groupby vars at a time, since we have
   ## to select rows based on this.
   assert( length(unique(aggregations$group_by)) == 1 )
-
+  
   if ( length(unique(aggregations$name)) < nrow(aggregations) ) {
     stop("all aggregations using the same set of grouping variables must have unique names")
   }
-
+  
   ## dplyr complains about joining a data.table, saying it is likely to be
   ## inefficient; profiling shows the cost to be negligible, so shut it up
   df <- suppressWarnings(inner_join(df, crosswalk_data, by = "zip5"))
-
+  
   group_vars <- aggregations$group_by[[1]]
-
+  
   if ( !all(group_vars %in% names(df)) ) {
     msg_plain(
       sprintf(
@@ -226,6 +226,7 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, geo_level, params) 
     return( list( ))
   }
   
+  # TODO: necessary? do post-filtering anyway for safety.
   ## Find all unique groups and associated frequencies, saved in column `Freq`.
   unique_groups_counts <- as.data.frame(
     table(df[, group_vars, with=FALSE], exclude=NULL, dnn=group_vars), 
@@ -237,130 +238,68 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, geo_level, params) 
   if ( nrow(unique_groups_counts) == 0 ) {
     return(list())
   }
- 
-  ## Convert col type in unique_groups to match that in data.
-  # Filter on data.table in `calculate_group` requires that columns and filter
-  # values are of the same type.
-  for (col_var in group_vars) {
-    if ( class(df[[col_var]]) != class(unique_groups_counts[[col_var]]) ) {
-      class(unique_groups_counts[[col_var]]) <- class(df[[col_var]])
-    }
-  }
   
+  # TODO: necessary?
   ## Set an index on the groupby var columns so that the groupby step can be
   ## faster; data.table stores the sort order of the column and
   ## uses a binary search to find matching values, rather than a linear scan.
   setindexv(df, group_vars)
-
-  calculate_group <- function(ii) {
-    target_group <- unique_groups_counts[ii, group_vars, drop=FALSE]
-    # Use data.table's index to make this filter efficient
-    out <- summarize_aggregations_group(
-      df[as.list(target_group), on=group_vars],
-      aggregations,
-      target_group,
-      geo_level,
-      params)
-
-    return(out)
-  }
-
-  if (params$parallel) {
-    dfs <- mclapply(seq_along(unique_groups_counts[[1]]), calculate_group)
-  } else {
-    dfs <- lapply(seq_along(unique_groups_counts[[1]]), calculate_group)
-  }
-
-  ## Now we have a list, with one entry per groupby level, each containing a
-  ## list of one data frame per aggregation. Rearrange it.
-  dfs_out <- list()
-  for (aggregation in aggregations$id) {
-    dfs_out[[aggregation]] <- bind_rows( lapply(dfs, function(groupby_levels) {
-      groupby_levels[[aggregation]]
-    }))
-  }
-
-  ## Do post-processing.
-  for (row in seq_len(nrow(aggregations))) {
-    aggregation <- aggregations$id[row]
-    group_vars <- aggregations$group_by[[row]]
-    post_fn <- aggregations$post_fn[[row]]
-    
-    # Keep only aggregations where the main value, `val`, is present.
-    dfs_out[[aggregation]] <- dfs_out[[aggregation]][
-      rowSums(is.na(dfs_out[[aggregation]][, c("val", "sample_size")])) == 0,
-    ]
-
-    dfs_out[[aggregation]] <- apply_privacy_censoring(dfs_out[[aggregation]], params)
-
-    ## Apply the post-function
-    dfs_out[[aggregation]] <- post_fn(dfs_out[[aggregation]])
-  }
-
-  return(dfs_out)
+  
+  df_out <- df[, summarize_aggregations_group(.SD, aggregations, params), 
+               by=group_vars, 
+               .SDcols=c("weight", "weight_in_location", unique(aggregations$metric))]
+  
+  return(df_out)
 }
 
 #' Produce estimates for all indicators in a specific target group.
 #'
-#' @param group_df Data frame containing all data needed to estimate one group.
-#'   Estimates for `target_group` will be based on all of this data.
+#' @param group_df Data frame containing weight fields and all metric fields.
 #' @param aggregations Aggregations to report. See `produce_aggregates()`.
-#' @param target_group A `data.table` with one row specifying the grouping
-#'   variable values used to select this group.
-#' @param geo_level a string of the current geo level, such as county or state,
-#'   being used
 #' @param params Named list of configuration options.
 #'
-#' @importFrom tibble add_column as_tibble
 #' @importFrom dplyr %>%
-#'
-#' @export
-summarize_aggregations_group <- function(group_df, aggregations, target_group, geo_level, params) {
+summarize_aggregations_group <- function(group_df, aggregations, params) {
   ## Prepare outputs.
-  dfs_out <- list()
+  df_out <- list()
+  
   for (row in seq_along(aggregations$id)) {
-    aggregation <- aggregations$id[row]
-
-    dfs_out[[aggregation]] <- target_group %>%
-      as.list %>%
-      as_tibble %>%
-      add_column(val=NA_real_,
-                 se=NA_real_,
-                 sample_size=NA_real_,
-                 effective_sample_size=NA_real_,
-                 represented=NA_real_)
-  }
-
-  for (row in seq_along(aggregations$id)) {
-    aggregation <- aggregations$id[row]
+    agg_name <- aggregations$name[row]
     metric <- aggregations$metric[row]
     var_weight <- aggregations$var_weight[row]
     compute_fn <- aggregations$compute_fn[[row]]
-
+    post_fn <- aggregations$post_fn[[row]]
+    
     agg_df <- group_df[!is.na(group_df[[var_weight]]) & !is.na(group_df[[metric]]), ]
-
+    
     if (nrow(agg_df) > 0) {
       s_mix_coef <- params$s_mix_coef
       mixing <- mix_weights(agg_df[[var_weight]] * agg_df$weight_in_location,
                             s_mix_coef, params$s_weight)
-
+      
       sample_size <- sum(agg_df$weight_in_location)
       total_represented <- sum(agg_df[[var_weight]] * agg_df$weight_in_location)
-
+      
       ## TODO: See issue #764
       new_row <- compute_fn(
         response = agg_df[[metric]],
         weight = if (aggregations$skip_mixing[row]) { mixing$normalized_preweights } else { mixing$weights },
         sample_size = sample_size,
         total_represented = total_represented)
-
-      dfs_out[[aggregation]]$val <- new_row$val
-      dfs_out[[aggregation]]$se <- new_row$se
-      dfs_out[[aggregation]]$sample_size <- sample_size
-      dfs_out[[aggregation]]$effective_sample_size <- new_row$effective_sample_size
-      dfs_out[[aggregation]]$represented <- new_row$represented
+      
+      new_row <- post_fn(new_row)
+      new_row <- apply_privacy_censoring(new_row, params)
+      
+      # Keep only aggregations where the main value, `val`, and sample size are present.
+      if ( nrow(new_row) > 0 && !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
+        df_out[[paste("val", agg_name, sep="_")]] <- new_row$val
+        df_out[[paste("se", agg_name, sep="_")]] <- new_row$se
+        df_out[[paste("sample_size", agg_name, sep="_")]] <- sample_size
+        df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- new_row$effective_sample_size
+        df_out[[paste("represented", agg_name, sep="_")]] <- new_row$represented
+      }
     }
   }
-
-  return(dfs_out)
+  
+  return(df_out)
 }

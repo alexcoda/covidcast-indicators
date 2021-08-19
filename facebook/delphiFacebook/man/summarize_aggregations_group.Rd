@@ -4,25 +4,12 @@
 \alias{summarize_aggregations_group}
 \title{Produce estimates for all indicators in a specific target group.}
 \usage{
-summarize_aggregations_group(
-  group_df,
-  aggregations,
-  target_group,
-  geo_level,
-  params
-)
+summarize_aggregations_group(group_df, aggregations, params)
 }
 \arguments{
-\item{group_df}{Data frame containing all data needed to estimate one group.
-Estimates for `target_group` will be based on all of this data.}
+\item{group_df}{Data frame containing weight fields and all metric fields.}
 
 \item{aggregations}{Aggregations to report. See `produce_aggregates()`.}
-
-\item{target_group}{A `data.table` with one row specifying the grouping
-variable values used to select this group.}
-
-\item{geo_level}{a string of the current geo level, such as county or state,
-being used}
 
 \item{params}{Named list of configuration options.}
 }
