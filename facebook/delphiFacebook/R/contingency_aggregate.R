@@ -74,23 +74,21 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
 
     df_out <- summarize_aggs(df, geo_crosswalk, these_aggs, params)
 
-    ## To drop other response columns ("val", "sample_size", "se",
-    ## "effective_sample_size", "represented"), add here.
-    # If these names change (e.g. `sample_size` to `n`), update
-    # `contingency-combine.R`.
-    drop_vars <- c("effective_sample_size")
-    print(drop_vars)
-    print(class(drop_vars))
-    drop_cols <- which(Reduce("|", lapply(
-      drop_vars, function(prefix) {
-        print(prefix)
-        print(class(prefix))
-        startsWith(names(df_out), prefix) 
-      }))
-    )
-    df_out <- df_out %>% select(-drop_cols)
-
     if ( nrow(df_out) != 0 ) {
+      ## To drop other response columns ("val", "sample_size", "se",
+      ## "effective_sample_size", "represented"), add here.
+      # If these names change (e.g. `sample_size` to `n`), update
+      # `contingency-combine.R`.
+      drop_vars <- c("effective_sample_size")
+      drop_cols <- which(Reduce("|", lapply(
+        drop_vars, function(prefix) {
+          print(prefix)
+          print(class(prefix))
+          startsWith(names(df_out), prefix) 
+        }))
+      )
+      df_out <- df_out %>% select(-drop_cols)
+      
       write_contingency_tables(df_out, params, geo_level, agg_group)
     }
   }
@@ -197,7 +195,7 @@ post_process_aggs <- function(df, aggregations, cw_list) {
 #' @export
 summarize_aggs <- function(df, crosswalk_data, aggregations, params) {
   if (nrow(df) == 0) {
-    return( list() )
+    return( data.frame() )
   }
   
   ## We do batches of just one set of groupby vars at a time, since we have
@@ -220,7 +218,7 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, params) {
         "not all of grouping columns %s available in data; skipping aggregation",
         paste(group_vars, collapse=", ")
       ))
-    return( list( ))
+    return( data.frame( ))
   }
   
   # TODO: necessary? do post-filtering anyway for safety.
@@ -233,7 +231,7 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, params) {
   # Drop groups with less than threshold sample size.
   unique_groups_counts <- filter(unique_groups_counts, .data$Freq >= params$num_filter)
   if ( nrow(unique_groups_counts) == 0 ) {
-    return(list())
+    return( data.frame() )
   }
   
   # TODO: necessary?
@@ -246,7 +244,7 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, params) {
                by=group_vars, 
                .SDcols=c("weight", "weight_in_location", unique(aggregations$metric))]
   
-  return(df_out)
+  return( df_out )
 }
 
 #' Produce estimates for all indicators in a specific target group.
@@ -289,15 +287,6 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
       
       new_row <- post_fn(data.frame(new_row))
       new_row <- as.list(apply_privacy_censoring(new_row, params))
-      
-      print(agg_name, metric)
-      print(new_row)
-      print(class(new_row))
-      print(length(new_row))
-      print(new_row$val)
-      print(is.na(new_row$val))
-      print(new_row$sample_size)
-      print(is.na(new_row$val))
       
       # Keep only aggregations where the main value, `val`, and sample size are present.
       if ( length(new_row) > 0 && !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
