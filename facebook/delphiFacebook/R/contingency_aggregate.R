@@ -34,7 +34,7 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
   ## table in sorted order so data.table can use a binary search to find
   ## matching dates, rather than a linear scan, and is important for very large
   ## input files.
-  df <- as.data.table(df)
+  df <- as.data.table(df) %>% filter(!is.na(weight))
   setkeyv(df, "start_dt")
 
   # Keep only obs in desired date range.
