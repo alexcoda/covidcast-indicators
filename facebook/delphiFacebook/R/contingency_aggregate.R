@@ -266,6 +266,13 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
     
     agg_df <- group_df[!is.na(group_df[[var_weight]]) & !is.na(group_df[[metric]]), ]
     
+    # Defaults
+    df_out[[paste("val", agg_name, sep="_")]] <- NA_real_
+    df_out[[paste("se", agg_name, sep="_")]] <- NA_real_
+    df_out[[paste("sample_size", agg_name, sep="_")]] <- NA_real_
+    df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- NA_real_
+    df_out[[paste("represented", agg_name, sep="_")]] <- NA_real_
+    
     if (nrow(agg_df) > 0) {
       s_mix_coef <- params$s_mix_coef
       mixing <- mix_weights(agg_df[[var_weight]] * agg_df$weight_in_location,
@@ -281,13 +288,20 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
         sample_size = sample_size,
         total_represented = total_represented)
       
-      new_row <- as.list(post_fn(data.frame(new_row)))
-
-      df_out[[paste("val", agg_name, sep="_")]] <- new_row$val
-      df_out[[paste("se", agg_name, sep="_")]] <- new_row$se
-      df_out[[paste("sample_size", agg_name, sep="_")]] <- sample_size
-      df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- new_row$effective_sample_size
-      df_out[[paste("represented", agg_name, sep="_")]] <- new_row$represented
+      new_row <- post_fn(data.frame(new_row))
+      new_row <- apply_privacy_censoring(new_row, params)
+            
+      # Keep only aggregations where the main value, `val`, and sample size are present.
+      if ( nrow(new_row) > 0 ) {
+        new_row <- as.list(new_row)
+        if ( !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
+          df_out[[paste("val", agg_name, sep="_")]] <- new_row$val
+          df_out[[paste("se", agg_name, sep="_")]] <- new_row$se
+          df_out[[paste("sample_size", agg_name, sep="_")]] <- sample_size
+          df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- new_row$effective_sample_size
+          df_out[[paste("represented", agg_name, sep="_")]] <- new_row$represented
+        }
+      }
     }
   }
   
