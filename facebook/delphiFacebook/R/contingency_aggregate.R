@@ -283,7 +283,14 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
       
       new_row <- post_fn(data.frame(new_row))
       new_row <- apply_privacy_censoring(new_row, params)
-      
+
+      # Defaults
+      df_out[[paste("val", agg_name, sep="_")]] <- NA
+      df_out[[paste("se", agg_name, sep="_")]] <- NA
+      df_out[[paste("sample_size", agg_name, sep="_")]] <- NA
+      df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- NA
+      df_out[[paste("represented", agg_name, sep="_")]] <- NA
+            
       # Keep only aggregations where the main value, `val`, and sample size are present.
       if ( nrow(new_row) > 0 ) {
         new_row <- as.list(new_row)
