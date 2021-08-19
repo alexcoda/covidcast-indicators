@@ -13,6 +13,10 @@ summarize_aggregations_group(group_df, aggregations, params)
 
 \item{params}{Named list of configuration options.}
 }
+\value{
+named list where each element is the val, se, n, n effective, or
+  represented population for a given aggregation
+}
 \description{
 Produce estimates for all indicators in a specific target group.
 }

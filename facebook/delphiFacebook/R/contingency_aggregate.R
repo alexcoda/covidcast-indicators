@@ -72,7 +72,7 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
                                       FUN=function(x) {setequal(x, agg_group)
                                       }) & aggregations$geo_level == geo_level, ]
 
-    dfs_out <- summarize_aggs(df, geo_crosswalk, these_aggs, geo_level, params)
+    dfs_out <- summarize_aggs(df, geo_crosswalk, these_aggs, params)
 
     ## To display other response columns ("val", "sample_size", "se",
     ## "effective_sample_size", "represented"), add here.
@@ -192,13 +192,16 @@ post_process_aggs <- function(df, aggregations, cw_list) {
 #'   being used
 #' @param params a named list with entries "s_weight", "s_mix_coef",
 #'   "num_filter"
+#'   
+#' @return named list where each element is the val, se, n, n effective, or
+#'   represented population for a given aggregation
 #'
 #' @importFrom dplyr inner_join bind_rows
 #' @importFrom parallel mclapply
 #' @importFrom stats complete.cases
 #'
 #' @export
-summarize_aggs <- function(df, crosswalk_data, aggregations, geo_level, params) {
+summarize_aggs <- function(df, crosswalk_data, aggregations, params) {
   if (nrow(df) == 0) {
     return( list() )
   }
@@ -258,6 +261,9 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, geo_level, params) 
 #' @param aggregations Aggregations to report. See `produce_aggregates()`.
 #' @param params Named list of configuration options.
 #'
+#' @return named list where each element is the val, se, n, n effective, or
+#'   represented population for a given aggregation
+#'
 #' @importFrom dplyr %>%
 summarize_aggregations_group <- function(group_df, aggregations, params) {
   ## Prepare outputs.
@@ -287,11 +293,11 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
         sample_size = sample_size,
         total_represented = total_represented)
       
-      new_row <- post_fn(new_row)
-      new_row <- apply_privacy_censoring(new_row, params)
+      new_row <- post_fn(data.frame(new_row))
+      new_row <- as.list(apply_privacy_censoring(new_row, params))
       
       # Keep only aggregations where the main value, `val`, and sample size are present.
-      if ( nrow(new_row) > 0 && !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
+      if ( length(new_row) > 0 && !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
         df_out[[paste("val", agg_name, sep="_")]] <- new_row$val
         df_out[[paste("se", agg_name, sep="_")]] <- new_row$se
         df_out[[paste("sample_size", agg_name, sep="_")]] <- sample_size

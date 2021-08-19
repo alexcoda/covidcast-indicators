@@ -4,7 +4,7 @@
 \alias{summarize_aggs}
 \title{Perform calculations across all groupby levels for all aggregations.}
 \usage{
-summarize_aggs(df, crosswalk_data, aggregations, geo_level, params)
+summarize_aggs(df, crosswalk_data, aggregations, params)
 }
 \arguments{
 \item{df}{a data frame of survey responses}
@@ -22,11 +22,15 @@ the aggregate response given many rows of data. `post_fn` is applied to the
 aggregate data after megacounty aggregation, and can perform any final
 calculations necessary.}
 
-\item{geo_level}{a string of the current geo level, such as county or state,
-being used}
-
 \item{params}{a named list with entries "s_weight", "s_mix_coef",
 "num_filter"}
+
+\item{geo_level}{a string of the current geo level, such as county or state,
+being used}
+}
+\value{
+named list where each element is the val, se, n, n effective, or
+  represented population for a given aggregation
 }
 \description{
 Perform calculations across all groupby levels for all aggregations.
