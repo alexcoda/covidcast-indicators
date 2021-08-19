@@ -24,9 +24,6 @@ calculations necessary.}
 
 \item{params}{a named list with entries "s_weight", "s_mix_coef",
 "num_filter"}
-
-\item{geo_level}{a string of the current geo level, such as county or state,
-being used}
 }
 \value{
 named list where each element is the val, se, n, n effective, or

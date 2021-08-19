@@ -79,8 +79,12 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
     # If these names change (e.g. `sample_size` to `n`), update
     # `contingency-combine.R`.
     drop_vars <- c("effective_sample_size")
+    print(drop_vars)
+    print(class(drop_vars))
     drop_cols <- which(Reduce("|", lapply(
       drop_vars, function(prefix) {
+        print(prefix)
+        print(class(prefix))
         startsWith(names(df_out), prefix) 
       }))
     )
@@ -285,6 +289,15 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
       
       new_row <- post_fn(data.frame(new_row))
       new_row <- as.list(apply_privacy_censoring(new_row, params))
+      
+      print(agg_name, metric)
+      print(new_row)
+      print(class(new_row))
+      print(length(new_row))
+      print(new_row$val)
+      print(is.na(new_row$val))
+      print(new_row$sample_size)
+      print(is.na(new_row$val))
       
       # Keep only aggregations where the main value, `val`, and sample size are present.
       if ( length(new_row) > 0 && !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
