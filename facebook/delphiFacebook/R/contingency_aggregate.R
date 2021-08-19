@@ -72,29 +72,21 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
                                       FUN=function(x) {setequal(x, agg_group)
                                       }) & aggregations$geo_level == geo_level, ]
 
-    dfs_out <- summarize_aggs(df, geo_crosswalk, these_aggs, params)
+    df_out <- summarize_aggs(df, geo_crosswalk, these_aggs, params)
 
-    ## To display other response columns ("val", "sample_size", "se",
+    ## To drop other response columns ("val", "sample_size", "se",
     ## "effective_sample_size", "represented"), add here.
     # If these names change (e.g. `sample_size` to `n`), update
     # `contingency-combine.R`.
-    keep_vars <- c("val", "se", "sample_size", "represented")
+    drop_vars <- c("effective_sample_size")
+    drop_cols <- which(Reduce("|", lapply(
+      drop_vars, function(prefix) {
+        startsWith(names(df_out), prefix) 
+      }))
+    )
+    df_out <- df_out %>% select(-drop_cols)
 
-    for (agg_id in names(dfs_out)) {
-      if (nrow(dfs_out[[agg_id]]) == 0) {
-        dfs_out[[agg_id]] <- NULL
-        next
-      }
-      agg_metric <- aggregations$name[aggregations$id == agg_id]
-      map_old_new_names <- keep_vars
-      names(map_old_new_names) <- paste(keep_vars, agg_metric, sep="_")
-
-      dfs_out[[agg_id]] <- rename(
-        dfs_out[[agg_id]][, c(agg_group, keep_vars)], all_of(map_old_new_names))
-    }
-
-    if ( length(dfs_out) != 0 ) {
-      df_out <- dfs_out %>% reduce(full_join, by=agg_group, suff=c("", ""))
+    if ( nrow(df_out) != 0 ) {
       write_contingency_tables(df_out, params, geo_level, agg_group)
     }
   }
@@ -188,8 +180,6 @@ post_process_aggs <- function(df, aggregations, cw_list) {
 #'   the aggregate response given many rows of data. `post_fn` is applied to the
 #'   aggregate data after megacounty aggregation, and can perform any final
 #'   calculations necessary.
-#' @param geo_level a string of the current geo level, such as county or state,
-#'   being used
 #' @param params a named list with entries "s_weight", "s_mix_coef",
 #'   "num_filter"
 #'   
