@@ -75,15 +75,11 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
     df_out <- summarize_aggs(df, geo_crosswalk, these_aggs, params)
 
     if ( nrow(df_out) != 0 ) {
-      ## To drop other response columns ("val", "sample_size", "se",
-      ## "effective_sample_size", "represented"), add here.
-      # If these names change (e.g. `sample_size` to `n`), update
-      # `contingency-combine.R`.
+      # To drop other response columns ("val", "sample_size", "se",
+      # "effective_sample_size", "represented"), add here.
       drop_vars <- c("effective_sample_size")
       drop_cols <- which(Reduce("|", lapply(
         drop_vars, function(prefix) {
-          print(prefix)
-          print(class(prefix))
           startsWith(names(df_out), prefix) 
         }))
       )
@@ -286,15 +282,18 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
         total_represented = total_represented)
       
       new_row <- post_fn(data.frame(new_row))
-      new_row <- as.list(apply_privacy_censoring(new_row, params))
+      new_row <- apply_privacy_censoring(new_row, params)
       
       # Keep only aggregations where the main value, `val`, and sample size are present.
-      if ( length(new_row) > 0 && !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
-        df_out[[paste("val", agg_name, sep="_")]] <- new_row$val
-        df_out[[paste("se", agg_name, sep="_")]] <- new_row$se
-        df_out[[paste("sample_size", agg_name, sep="_")]] <- sample_size
-        df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- new_row$effective_sample_size
-        df_out[[paste("represented", agg_name, sep="_")]] <- new_row$represented
+      if ( nrow(new_row) > 0 ) {
+        new_row <- as.list(new_row)
+        if ( !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
+          df_out[[paste("val", agg_name, sep="_")]] <- new_row$val
+          df_out[[paste("se", agg_name, sep="_")]] <- new_row$se
+          df_out[[paste("sample_size", agg_name, sep="_")]] <- sample_size
+          df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- new_row$effective_sample_size
+          df_out[[paste("represented", agg_name, sep="_")]] <- new_row$represented
+        }
       }
     }
   }
