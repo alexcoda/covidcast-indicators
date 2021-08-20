@@ -83,6 +83,7 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
           startsWith(names(df_out), prefix) 
         }))
       )
+      
       df_out <- df_out %>% select(-drop_cols)
       
       write_contingency_tables(df_out, params, geo_level, agg_group)
@@ -254,8 +255,17 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, params) {
 #'
 #' @importFrom dplyr %>%
 summarize_aggregations_group <- function(group_df, aggregations, params) {
-  ## Prepare outputs.
-  df_out <- list()
+  ## Prepare output with defaults.
+  output_vars <- c("val", "se", "sample_size", "effective_sample_size", "represented")
+  output_field_names <- paste(
+    rep(output_vars, length(aggregations$name)),
+    rep(aggregations$name, each=length(output_vars)),
+    sep="_"
+  )
+  df_out <- setNames(
+    lapply(output_field_names, function(name) { NA_real_ }),
+    output_field_names
+  )
   
   for (row in seq_along(aggregations$id)) {
     agg_name <- aggregations$name[row]
@@ -265,14 +275,7 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
     post_fn <- aggregations$post_fn[[row]]
     
     agg_df <- group_df[!is.na(group_df[[var_weight]]) & !is.na(group_df[[metric]]), ]
-    
-    # Defaults
-    df_out[[paste("val", agg_name, sep="_")]] <- NA_real_
-    df_out[[paste("se", agg_name, sep="_")]] <- NA_real_
-    df_out[[paste("sample_size", agg_name, sep="_")]] <- NA_real_
-    df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- NA_real_
-    df_out[[paste("represented", agg_name, sep="_")]] <- NA_real_
-    
+
     if (nrow(agg_df) > 0) {
       s_mix_coef <- params$s_mix_coef
       mixing <- mix_weights(agg_df[[var_weight]] * agg_df$weight_in_location,
@@ -292,14 +295,13 @@ summarize_aggregations_group <- function(group_df, aggregations, params) {
       new_row <- apply_privacy_censoring(new_row, params)
             
       # Keep only aggregations where the main value, `val`, and sample size are present.
-      if ( nrow(new_row) > 0 ) {
-        new_row <- as.list(new_row)
+      if ( nrow(new_row) == 1 ) {
         if ( !is.na(new_row$val) && !is.na(new_row$sample_size) ) {
-          df_out[[paste("val", agg_name, sep="_")]] <- new_row$val
-          df_out[[paste("se", agg_name, sep="_")]] <- new_row$se
+          df_out[[paste("val", agg_name, sep="_")]] <- new_row$val[1]
+          df_out[[paste("se", agg_name, sep="_")]] <- new_row$se[1]
           df_out[[paste("sample_size", agg_name, sep="_")]] <- sample_size
-          df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- new_row$effective_sample_size
-          df_out[[paste("represented", agg_name, sep="_")]] <- new_row$represented
+          df_out[[paste("effective_sample_size", agg_name, sep="_")]] <- new_row$effective_sample_size[1]
+          df_out[[paste("represented", agg_name, sep="_")]] <- new_row$represented[1]
         }
       }
     }
