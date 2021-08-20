@@ -38,7 +38,7 @@ run_contingency_tables <- function(params) {
       warning("Could not detect the number of CPU cores; parallel mode disabled")
       params$parallel <- FALSE
     } else {
-      options(mc.cores = cores)
+      options(mc.cores = min(cores, 16))
       msg_plain(paste0("Running on ", cores, " cores"))
     }
   }

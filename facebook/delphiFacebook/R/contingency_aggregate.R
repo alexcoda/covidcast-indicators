@@ -59,12 +59,13 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
   # For each unique combination of group_vars and geo level, run aggregation process once
   # and calculate all desired aggregations on the grouping. Rename columns. Save
   # to individual files
-  for (group_ind in seq_along(agg_groups$group_by)) {
+  map_fn <- ifelse(params$parallel, mclapply, lapply)
 
+  invisible(map_fn(seq_along(agg_groups$group_by), function(group_ind) {
     agg_group <- agg_groups$group_by[group_ind][[1]]
     geo_level <- agg_groups$geo_level[group_ind]
     geo_crosswalk <- cw_list[[geo_level]]
-
+    
     # Subset aggregations to keep only those grouping by the current agg_group
     # and with the current geo_level. `setequal` ignores differences in
     # ordering and only looks at unique elements.
@@ -97,7 +98,7 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
       df_out <- dfs_out %>% reduce(full_join, by=agg_group, suff=c("", ""))
       write_contingency_tables(df_out, params, geo_level, agg_group)
     }
-  }
+  }))
 }
 
 #' Process aggregations to make formatting more consistent
@@ -274,11 +275,7 @@ summarize_aggs <- function(df, crosswalk_data, aggregations, geo_level, params) 
     return(out)
   }
 
-  if (params$parallel) {
-    dfs <- mclapply(seq_along(unique_groups_counts[[1]]), calculate_group)
-  } else {
-    dfs <- lapply(seq_along(unique_groups_counts[[1]]), calculate_group)
-  }
+  dfs <- lapply(seq_along(unique_groups_counts[[1]]), calculate_group)
 
   ## Now we have a list, with one entry per groupby level, each containing a
   ## list of one data frame per aggregation. Rearrange it.
