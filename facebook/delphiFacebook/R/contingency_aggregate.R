@@ -59,21 +59,22 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
   # For each unique combination of group_vars and geo level, run aggregation process once
   # and calculate all desired aggregations on the grouping. Rename columns. Save
   # to individual files
-  for (group_ind in seq_along(agg_groups$group_by)) {
+  map_fn <- ifelse(params$parallel, mclapply, lapply)
 
+  invisible(map_fn(seq_along(agg_groups$group_by), function(group_ind) {
     agg_group <- agg_groups$group_by[group_ind][[1]]
     geo_level <- agg_groups$geo_level[group_ind]
     geo_crosswalk <- cw_list[[geo_level]]
-
+    
     # Subset aggregations to keep only those grouping by the current agg_group
     # and with the current geo_level. `setequal` ignores differences in
     # ordering and only looks at unique elements.
     these_aggs <- aggregations[mapply(aggregations$group_by,
                                       FUN=function(x) {setequal(x, agg_group)
                                       }) & aggregations$geo_level == geo_level, ]
-
+    
     df_out <- summarize_aggs(df, geo_crosswalk, these_aggs, params)
-
+    
     if ( nrow(df_out) != 0 ) {
       # To drop other response columns ("val", "sample_size", "se",
       # "effective_sample_size", "represented"), add here.
@@ -88,7 +89,7 @@ produce_aggregates <- function(df, aggregations, cw_list, params) {
       
       write_contingency_tables(df_out, params, geo_level, agg_group)
     }
-  }
+  }))
 }
 
 #' Process aggregations to make formatting more consistent
