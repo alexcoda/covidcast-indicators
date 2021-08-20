@@ -147,7 +147,7 @@ test_that("testing run with multiple aggregations per group", {
     sample_size_pct_heartdisease = 2000L,
     represented_pct_heartdisease = 100 * 2000,
   )
-
+  
   out <- read.csv(file.path(params$export_dir, "20200501_20200531_monthly_nation_gender.csv"))
   expect_equivalent(out, expected)
 })
@@ -208,7 +208,7 @@ test_that("simple weighted dataset produces correct percents", {
     ~geo_id, ~gender, ~val_pct_hh_fever, ~se_pct_hh_fever, ~sample_size_pct_hh_fever, ~represented_pct_hh_fever,
     "us", "Female", fever_prop * 100, NA, 2000L, sum(rand_weights)
   ))
-
+  
   out <- read.csv(file.path(params$export_dir, "20200501_20200531_monthly_nation_gender.csv"))
   expect_equivalent(out, expected_output)
 })
@@ -259,14 +259,14 @@ test_that("county aggs are created correctly", {
     )
   )
   
-  output <- summarize_aggs(input, geomap, agg, "county", params)
+  output <- summarize_aggs(input, geomap, agg, params)
   # "AsIs" class originating from use of identity `I` in `post_fn` causes test
   # failure. Force to common format.
   output[[1]] <- tibble(output[[1]])
   
-  expected_output <- list(
-    "pct_hh_fever" = tribble(
-      ~gender, ~geo_id, ~val, ~se, ~sample_size, ~effective_sample_size, ~represented,
+  expected_output <- as.data.table(
+    tribble(
+      ~gender, ~geo_id, ~val_pct_hh_fever, ~se_pct_hh_fever, ~sample_size_pct_hh_fever, ~effective_sample_size_pct_hh_fever, ~represented_pct_hh_fever,
       1, "20004", 0, NA_real_, 101, 101,  100 * 101,
       ## Megacounties are not created.
       # 1, "10000", 30/105 * 100, NA_real_, 105, 105,  NA_real_
